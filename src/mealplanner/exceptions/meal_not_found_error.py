@@ -1,0 +1,4 @@
+
+
+class MealNotFoundError(Exception):
+    pass

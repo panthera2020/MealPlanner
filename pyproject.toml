@@ -1,0 +1,23 @@
+[project]
+name = "mealplanner"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "panthera2020", email = "diranoye2020@gmail.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi[standard]>=0.162.7",
+    "pydantic>=2.14.3",
+    # Use maintained PyMongo; the legacy amplidata fork fails on Python 3.14.
+    "pymongo>=4.15",
+    "pytest>=9.2.0",
+]
+
+[project.scripts]
+mealplanner = "mealplanner:main"
+
+[build-system]
+requires = ["uv_build>=0.13.5,<0.14.0"]
+build-backend = "uv_build"
