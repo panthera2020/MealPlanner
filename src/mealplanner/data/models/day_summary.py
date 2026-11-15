@@ -8,3 +8,4 @@ class DaySummary(BaseModel):
     day: Day
     dish_list: List[str]
     total_calories: int
+    target_acquired: bool

@@ -7,6 +7,7 @@ from pymongo import MongoClient
 from mealplanner.data.models import days, day_summary
 from mealplanner.data.repositories.mongo_meal_repository import MongoMealRepository
 from mealplanner.dtos.create_meal import CreateMeal
+from mealplanner.dtos.create_summary import CreateSummary
 from mealplanner.exceptions.meal_not_found_error import MealNotFoundError
 from mealplanner.service.meal_planner_service import MealPlannerService
 
@@ -45,7 +46,7 @@ def test_that_when_i_add_meal_it_is_saved(service):
         calories=200,
     )
 
-    meal = service.add(payload)
+    meal = service.add_meal(payload)
 
     saved_meal = service.get_meal(meal.meal_id)
 
@@ -78,9 +79,9 @@ def test_that_when_i_can_get_all_meals_for_a_day(service):
         calories= 900,
     )
 
-    service.add(payload_one)
-    service.add(payload_two)
-    service.add(payload_three)
+    service.add_meal(payload_one)
+    service.add_meal(payload_two)
+    service.add_meal(payload_three)
 
     monday_meals = service.get_meals(day=days.Day.Monday)
 
@@ -116,16 +117,26 @@ def test_that_when_i_can_get_a_summary_of_each_day_meals(service):
         calories=900,
     )
 
-    service.add(payload_one)
-    service.add(payload_two)
-    service.add(payload_three)
+    service.add_meal(payload_one)
+    service.add_meal(payload_two)
+    service.add_meal(payload_three)
 
-    monday_summary = service.get_day_summary(days.Day.Monday)
-    tuesday_summary = service.get_day_summary(days.Day.Tuesday)
+    monday_summary = service.get_day_summary(
+        CreateSummary(
+            day=days.Day.Monday,
+            maximum_calorie_target=2000
+        ))
+    tuesday_summary = service.get_day_summary(
+        CreateSummary(
+            day=days.Day.Tuesday,
+            maximum_calorie_target=300
+        ))
 
 
     assert monday_summary.total_calories == 1200
     assert tuesday_summary.total_calories == 900
+    assert monday_summary.target_acquired is True
+    assert tuesday_summary.target_acquired is False
 
 
 def test_that_when_i_delete_meal_it_is_deleted_error_is_thrown_when_i_get_deleted_id(service):
@@ -136,11 +147,68 @@ def test_that_when_i_delete_meal_it_is_deleted_error_is_thrown_when_i_get_delete
         calories=200,
     )
 
-    meal = service.add(payload)
+    meal = service.add_meal(payload)
     service.delete_meal(meal.meal_id)
 
     with pytest.raises(MealNotFoundError):
         service.get_meal(meal.meal_id)
 
+
+def test_get_meal_raises_error_when_id_does_not_exist(service):
+    missing_meal_id = "meal-that-does-not-exist"
+
+    with pytest.raises(MealNotFoundError, match="Meal not found"):
+        service.get_meal(missing_meal_id)
+
+
+def test_get_meals_raises_error_when_only_other_days_have_meals(service):
+    service.add_meal(
+        CreateMeal(
+            day=days.Day.Tuesday,
+            dish="Yam and egg",
+            description="Boiled eggs",
+            calories=900,
+        )
+    )
+
+    with pytest.raises(MealNotFoundError, match="No meals"):
+        service.get_meals(day=days.Day.Monday)
+
+
+def test_get_day_summary_includes_dishes_and_requested_day(service):
+    service.add_meal(
+        CreateMeal(
+            day=days.Day.Monday,
+            dish="Semo and Egusi",
+            description="Lunch",
+            calories=200,
+        )
+    )
+    service.add_meal(
+        CreateMeal(
+            day=days.Day.Monday,
+            dish="Rice and Stew",
+            description="Dinner",
+            calories=500,
+        )
+    )
+
+    summary = service.get_day_summary(
+        CreateSummary(
+            day=days.Day.Monday,
+            maximum_calorie_target=1000
+        ))
+
+    assert summary.day == days.Day.Monday
+    assert summary.dish_list == ["Semo and Egusi", "Rice and Stew"]
+    assert summary.total_calories == 700
+    assert summary.target_acquired is True
+
+
+def test_delete_meal_raises_error_when_id_does_not_exist(service):
+    missing_meal_id = "meal-that-does-not-exist"
+
+    with pytest.raises(MealNotFoundError, match="Meal not found"):
+        service.delete_meal(missing_meal_id)
 
 

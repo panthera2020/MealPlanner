@@ -5,6 +5,7 @@ from mealplanner.data.models.days import Day
 from mealplanner.data.models.meal import Meal
 from mealplanner.data.repositories.meal_repository import MealRepository
 from mealplanner.dtos.create_meal import CreateMeal
+from mealplanner.dtos.create_summary import CreateSummary
 from mealplanner.exceptions.meal_not_found_error import MealNotFoundError
 
 
@@ -12,7 +13,7 @@ class MealPlannerService:
     def __init__(self, repository: MealRepository):
         self.repository = repository
 
-    def add(self, payload: CreateMeal) -> Meal:
+    def add_meal(self, payload: CreateMeal) -> Meal:
         new_meal = Meal(day=payload.day, dish=payload.dish, description=payload.description, calories=payload.calories)
         return self.repository.add(new_meal)
 
@@ -22,18 +23,21 @@ class MealPlannerService:
         return  meal
 
     def get_meals(self, day: Day) -> List[Meal]:
-        days_meal = self.repository.list()
-        if len(days_meal) == 0: raise MealNotFoundError(f"No meals for {day}")
-        return [meals for meals in days_meal if meals.day == day]
+        meals_for_day = [meal for meal in self.repository.list() if meal.day == day]
+        if not meals_for_day:
+            raise MealNotFoundError(f"No meals for {day}")
+        return meals_for_day
 
-    def get_day_summary(self, day: Day) -> DaySummary:
-        days_meal = self.get_meals(day)
+    def get_day_summary(self, payload: CreateSummary) -> DaySummary:
+        days_meal = self.get_meals(payload.day)
 
         dish_list = [meal.dish for meal in days_meal]
         total_calories = sum(meal.calories for meal in days_meal)
+        target_achieved = total_calories <= payload.maximum_calorie_target
 
-        return DaySummary( day=day, dish_list=dish_list, total_calories=total_calories )
+        return DaySummary( day=payload.day, dish_list=dish_list, total_calories=total_calories, target_acquired= target_achieved )
 
-    def delete_meal(self, meal_id: str) -> None:
+    def delete_meal(self, meal_id: str) -> bool:
         status = self.repository.remove(meal_id)
         if not status: raise MealNotFoundError("Meal not found")
+        return status
